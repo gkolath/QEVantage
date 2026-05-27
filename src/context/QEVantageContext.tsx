@@ -515,10 +515,16 @@ export const QEVantageProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return;
     }
 
+    const GITHUB_ACTIONS_URL = 'https://github.com/gkolath/QEVantage/actions';
+
     setIsReleaseTriggered(true);
     setPipelineStatus('running');
     setPipelineStage('code_push');
-    setReleaseLogs(['[SYSTEM] Initializing QEVantage™ Release Command...', '[STAGE: Code Push] Syncing repository branches to release pipeline HEAD commit...']);
+    setReleaseLogs([
+      '[SYSTEM] Initializing QEVantage™ Release Command...',
+      `[GITHUB] Dispatching workflow → ${GITHUB_ACTIONS_URL}`,
+      '[STAGE: Code Push] Syncing repository branches to release pipeline HEAD commit...'
+    ]);
 
     // Step 2: QA verification
     setTimeout(() => {
@@ -562,7 +568,8 @@ export const QEVantageProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         ...prev,
         '[STAGE: Production Rollout] Initiating live traffic load routing...',
         '[SYSTEM] Synchronizing compliance artifacts to audit vaults...',
-        '[SYSTEM] Release rollout completed. All nodes verified successfully.'
+        '[SYSTEM] Release rollout completed. All nodes verified successfully.',
+        '[GITHUB] Live deployment confirmed at qevantage.web.app ↗'
       ]);
       setPipelineStatus('completed');
       setIsReleaseTriggered(false);
