@@ -62,6 +62,7 @@ export const Dashboard: React.FC = () => {
     securityFindings,
     releaseReadinessScore,
     readyToShipStatus,
+    rrsDimensions,
     activeScenario,
     triggerScenario,
     isReleaseTriggered,
@@ -72,7 +73,7 @@ export const Dashboard: React.FC = () => {
 
   // Metrics calculators
   const avgCoverage = Math.round(stories.reduce((acc, s) => acc + s.coverage, 0) / stories.length);
-  
+
   const totalTests = testSuites.reduce((acc, s) => acc + s.total, 0);
   const totalPassed = testSuites.reduce((acc, s) => acc + s.passed, 0);
   const automationPassRate = totalTests ? Math.round((totalPassed / totalTests) * 100) : 100;
@@ -89,16 +90,16 @@ export const Dashboard: React.FC = () => {
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (releaseReadinessScore / 100) * circumference;
 
-  // Determine status color accents
+  // Verdict color / badge helpers (GO / CONDITIONAL GO / NO-GO)
   const getStatusColor = () => {
-    if (readyToShipStatus === 'Blocked') return 'var(--status-danger)';
-    if (readyToShipStatus === 'Risk Detected') return 'var(--status-warning)';
+    if (readyToShipStatus === 'NO-GO') return 'var(--status-danger)';
+    if (readyToShipStatus === 'CONDITIONAL GO') return 'var(--status-warning)';
     return 'var(--status-success)';
   };
 
   const getStatusClass = () => {
-    if (readyToShipStatus === 'Blocked') return 'badge-danger';
-    if (readyToShipStatus === 'Risk Detected') return 'badge-warning';
+    if (readyToShipStatus === 'NO-GO') return 'badge-danger';
+    if (readyToShipStatus === 'CONDITIONAL GO') return 'badge-warning';
     return 'badge-success';
   };
 
@@ -158,15 +159,15 @@ export const Dashboard: React.FC = () => {
       </section>
 
       {/* Main Scoring Core Layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '32px' }}>
+      <div className="score-layout-grid">
         
         {/* Score Center Panel */}
         <section className="glass-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px', textAlign: 'center' }}>
           <h3 style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', marginBottom: '24px' }}>{TRANSLATIONS.readinessScoreTitle}</h3>
           
           {/* Animated SVG circular gauge */}
-          <div style={{ position: 'relative', width: '220px', height: '220px', marginBottom: '24px' }}>
-            <svg width="220" height="220" viewBox="0 0 220 220" style={{ transform: 'rotate(-90deg)' }}>
+          <div className="donut-container">
+            <svg width="100%" height="100%" viewBox="0 0 220 220" style={{ transform: 'rotate(-90deg)' }}>
               {/* Background Ring */}
               <circle
                 cx="110"
@@ -203,101 +204,56 @@ export const Dashboard: React.FC = () => {
               {readyToShipStatus}
             </span>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', maxWidth: '280px', marginTop: '4px' }}>
-              {readyToShipStatus === 'Blocked' 
-                ? TRANSLATIONS.blockedDesc 
-                : readyToShipStatus === 'Risk Detected' 
-                ? TRANSLATIONS.riskDetectedDesc 
+              {readyToShipStatus === 'NO-GO'
+                ? TRANSLATIONS.blockedDesc
+                : readyToShipStatus === 'CONDITIONAL GO'
+                ? TRANSLATIONS.riskDetectedDesc
                 : TRANSLATIONS.confidentDeployDesc}
             </p>
           </div>
         </section>
 
-        {/* Quality Release Gate Checklist */}
-        <section className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        {/* RRS™ Dimension Gates — driven by engine */}
+        <section className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <h3 style={{ fontSize: '1.2rem', color: 'var(--text-primary)' }}>{TRANSLATIONS.evidenceGatesTitle}</h3>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-            
-            {/* Gate 1: Functional */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ display: 'flex', alignItems: 'center' }}>
-                  {avgCoverage >= 75 ? (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--status-success)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                  ) : (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--status-warning)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
-                  )}
-                </span>
-                <div>
-                  <h4 style={{ fontSize: '0.95rem', fontWeight: '600' }}>{TRANSLATIONS.functionalReqs}</h4>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{TRANSLATIONS.coverageThreshold}</p>
-                </div>
-              </div>
-              <span style={{ fontWeight: '700', fontSize: '0.95rem', color: avgCoverage >= 75 ? 'var(--status-success)' : 'var(--status-warning)' }}>
-                {avgCoverage}% {TRANSLATIONS.cover}
-              </span>
-            </div>
 
-            {/* Gate 2: Automation */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ display: 'flex', alignItems: 'center' }}>
-                  {automationPassRate >= 95 ? (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--status-success)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                  ) : (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--status-danger)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {rrsDimensions.map((dim, idx) => {
+              const isLast = idx === rrsDimensions.length - 1;
+              const color = dim.score >= 80 ? 'var(--status-success)' : dim.score >= 60 ? 'var(--status-warning)' : 'var(--status-danger)';
+              return (
+                <div key={dim.name} style={{ borderBottom: isLast ? 'none' : '1px solid rgba(255,255,255,0.03)', paddingBottom: isLast ? '0' : '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: dim.flag ? '6px' : '0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ display: 'flex', alignItems: 'center' }}>
+                        {dim.score >= 80 ? (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--status-success)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                        ) : dim.score >= 60 ? (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--status-warning)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /></svg>
+                        ) : (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--status-danger)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
+                        )}
+                      </span>
+                      <div>
+                        <h4 style={{ fontSize: '0.9rem', fontWeight: '600', margin: 0 }}>{dim.name}</h4>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>{Math.round(dim.weight * 100)}% weight</p>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontWeight: '700', fontSize: '1rem', color }}>{dim.score}</span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '2px' }}>/100</span>
+                    </div>
+                  </div>
+                  {/* Mini progress bar */}
+                  <div style={{ height: '3px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden', marginTop: '6px' }}>
+                    <div style={{ height: '100%', width: `${dim.score}%`, background: color, borderRadius: '2px', transition: 'width 0.6s ease' }} />
+                  </div>
+                  {dim.flag && (
+                    <p style={{ fontSize: '0.72rem', color: 'var(--status-warning)', marginTop: '4px', opacity: 0.85 }}>⚠ {dim.flag}</p>
                   )}
-                </span>
-                <div>
-                  <h4 style={{ fontSize: '0.95rem', fontWeight: '600' }}>{TRANSLATIONS.regressionAutomation}</h4>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{TRANSLATIONS.passRateThreshold}</p>
                 </div>
-              </div>
-              <span style={{ fontWeight: '700', fontSize: '0.95rem', color: automationPassRate >= 95 ? 'var(--status-success)' : 'var(--status-danger)' }}>
-                {automationPassRate}% {TRANSLATIONS.pass}
-              </span>
-            </div>
-
-            {/* Gate 3: Performance */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ display: 'flex', alignItems: 'center' }}>
-                  {isPerfOk ? (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--status-success)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                  ) : (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--status-danger)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
-                  )}
-                </span>
-                <div>
-                  <h4 style={{ fontSize: '0.95rem', fontWeight: '600' }}>{TRANSLATIONS.performanceCapacity}</h4>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{TRANSLATIONS.checkoutSlaLimit} {latencySla}ms</p>
-                </div>
-              </div>
-              <span style={{ fontWeight: '700', fontSize: '0.95rem', color: isPerfOk ? 'var(--status-success)' : 'var(--status-danger)' }}>
-                {latestPerf.responseTime}ms {TRANSLATIONS.avg}
-              </span>
-            </div>
-
-            {/* Gate 4: Security */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '4px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ display: 'flex', alignItems: 'center' }}>
-                  {criticalSecCount === 0 ? (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--status-success)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                  ) : (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--status-danger)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
-                  )}
-                </span>
-                <div>
-                  <h4 style={{ fontSize: '0.95rem', fontWeight: '600' }}>{TRANSLATIONS.threatAudit}</h4>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{TRANSLATIONS.zeroCriticalVulnerabilities}</p>
-                </div>
-              </div>
-              <span style={{ fontWeight: '700', fontSize: '0.95rem', color: criticalSecCount === 0 ? 'var(--status-success)' : 'var(--status-danger)' }}>
-                {criticalSecCount} {TRANSLATIONS.openCritical}
-              </span>
-            </div>
-
+              );
+            })}
           </div>
         </section>
       </div>
@@ -322,10 +278,10 @@ export const Dashboard: React.FC = () => {
             <button 
               className="btn btn-primary" 
               onClick={triggerRelease} 
-              disabled={readyToShipStatus === 'Blocked' || isReleaseTriggered}
+              disabled={readyToShipStatus === 'NO-GO' || isReleaseTriggered}
               style={{ 
-                opacity: readyToShipStatus === 'Blocked' ? 0.4 : 1, 
-                cursor: readyToShipStatus === 'Blocked' ? 'not-allowed' : 'pointer',
+                opacity: readyToShipStatus === 'NO-GO' ? 0.4 : 1, 
+                cursor: readyToShipStatus === 'NO-GO' ? 'not-allowed' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px'
@@ -372,7 +328,7 @@ export const Dashboard: React.FC = () => {
       <div>
         <h3 style={{ fontSize: '1.2rem', color: 'var(--text-primary)', marginBottom: '16px' }}>{TRANSLATIONS.qualityControlTitle}</h3>
         
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
+        <div className="nav-cards-grid">
           
           {/* Card 1: Functional */}
           <div 

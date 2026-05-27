@@ -58,14 +58,6 @@ export const PerformanceTab: React.FC = () => {
 
   const latestPerf = perfHistory.slice(-1)[0];
 
-  // Colour helper for build dots — mirrors getCoverageColor
-  const getBuildColor = (responseTime: number) => {
-    const ratio = responseTime / latencySla;
-    if (ratio <= 0.6) return 'rgba(16, 185, 129, 0.8)';  // Green
-    if (ratio <= 0.85) return 'rgba(59, 130, 246, 0.8)'; // Blue
-    if (ratio <= 1.0)  return 'rgba(245, 158, 11, 0.8)'; // Amber
-    return 'rgba(239, 68, 68, 0.8)';                     // Red
-  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
@@ -227,9 +219,9 @@ export const PerformanceTab: React.FC = () => {
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0 }}>{TRANSLATIONS.simulatorDesc}</p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '4px' }}>
               {[
-                { label: TRANSLATIONS.standardLoad, type: 'Concurrent' },
-                { label: TRANSLATIONS.peakLoad,     type: 'Peak' },
-                { label: TRANSLATIONS.bulkLoad,     type: 'Bulk' },
+                { label: TRANSLATIONS.standardLoad, type: 'Concurrent' as const },
+                { label: TRANSLATIONS.peakLoad,     type: 'Peak' as const },
+                { label: TRANSLATIONS.bulkLoad,     type: 'Bulk' as const },
               ].map(({ label, type }) => (
                 <button
                   key={type}

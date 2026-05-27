@@ -95,8 +95,9 @@ export const AutomationTab: React.FC = () => {
           </button>
         </div>
 
-        {/* Suite grid — equal fixed columns so labels are always fully visible */}
-        <div className="heatmap-grid" style={{ display: 'grid', gridTemplateColumns: `repeat(${testSuites.length}, 1fr)`, gap: '12px', marginBottom: '24px' }}>
+        {/* Suite grid — scrolls horizontally on mobile so all suites stay visible */}
+        <div className="heatmap-scroll" style={{ marginBottom: '24px' }}>
+        <div className="heatmap-grid" style={{ display: 'grid', gridTemplateColumns: `repeat(${testSuites.length}, minmax(130px, 1fr))`, gap: '12px', minWidth: `${testSuites.length * 142}px` }}>
           {testSuites.map((suite) => (
             <div
               key={suite.id}
@@ -130,6 +131,7 @@ export const AutomationTab: React.FC = () => {
               </span>
             </div>
           ))}
+        </div>
         </div>
 
         {/* Selected suite detail panel — mirrors node detail panel */}
@@ -226,7 +228,7 @@ export const AutomationTab: React.FC = () => {
           {/* Healing stats summary */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <label style={{ fontSize: '0.78rem', fontWeight: '800', color: 'var(--label-color)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Healing Summary</label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div className="two-col-grid" style={{ gap: '10px' }}>
               {[
                 { label: 'Total Healed', value: healingEvents.length, color: 'var(--status-success)' },
                 { label: 'Avg Confidence', value: healingEvents.length > 0 ? `${Math.round(healingEvents.reduce((a, e) => a + e.confidence, 0) / healingEvents.length)}%` : '—', color: 'var(--accent-blue)' },

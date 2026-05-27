@@ -55,11 +55,23 @@ export interface HealingEvent {
   status: 'Resolved' | 'Pending';
 }
 
+export type RRSVerdict = 'GO' | 'CONDITIONAL GO' | 'NO-GO';
+
+export type RRSVertical = 'default' | 'fintech' | 'retail' | 'healthcare';
+
+export interface RRSDimensionScore {
+  name: string;
+  score: number;       // 0–100
+  weight: number;      // 0–1
+  explanation: string;
+  flag: string | null;
+}
+
 export interface ArchivedRelease {
   id: string;
   build: string;
   score: number;
-  status: 'Ready to Ship' | 'Risk Detected' | 'Blocked';
+  status: RRSVerdict;
   timestamp: string;
   coverage: number;
   passRate: number;
@@ -106,7 +118,10 @@ export interface QEVantageContextType {
 
   // Pillar 5: Release Management
   releaseReadinessScore: number;
-  readyToShipStatus: 'Ready to Ship' | 'Risk Detected' | 'Blocked';
+  readyToShipStatus: RRSVerdict;
+  rrsDimensions: RRSDimensionScore[];
+  rrsVertical: RRSVertical;
+  setRrsVertical: (v: RRSVertical) => void;
   isReleaseTriggered: boolean;
   releaseLogs: string[];
   triggerRelease: () => void;

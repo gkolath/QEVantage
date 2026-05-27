@@ -1,6 +1,25 @@
 import React, { useState } from 'react';
 import { useQEVantage } from '../context/QEVantageContextCore';
-import type { ArchivedRelease } from '../context/QEVantageContextCore';
+import type { ArchivedRelease, RRSVertical } from '../context/QEVantageContextCore';
+
+// Historical deployments (from data/deployments.json)
+const HISTORICAL_DEPLOYMENTS = [
+  { label: 'v2.0.0', date: '2025-10-01', score: 56, verdict: 'NO-GO',           incident: true  },
+  { label: 'v2.0.1', date: '2025-10-08', score: 74, verdict: 'CONDITIONAL GO',  incident: false },
+  { label: 'v2.1.0', date: '2025-11-12', score: 85, verdict: 'GO',              incident: false },
+  { label: 'v2.2.0', date: '2025-12-05', score: 42, verdict: 'NO-GO',           incident: true  },
+  { label: 'v2.3.0', date: '2026-01-20', score: 93, verdict: 'GO',              incident: false },
+  { label: 'v2.4.0', date: '2026-03-10', score: 82, verdict: 'GO',              incident: false },
+  { label: 'v2.5.0', date: '2026-04-22', score: 61, verdict: 'CONDITIONAL GO',  incident: true  },
+  { label: 'v2.6.0', date: '2026-05-27', score: 88, verdict: 'GO',              incident: false },
+] as const;
+
+const VERTICAL_LABELS: Record<RRSVertical, string> = {
+  default:    'Default (Equal)',
+  fintech:    'Fintech (Security+)',
+  retail:     'Retail (Performance+)',
+  healthcare: 'Healthcare (Security+Functional)',
+};
 
 const TRANSLATIONS = {
   stepperTitle: 'Rollout Pipeline Stepper',
@@ -45,6 +64,9 @@ export const ReleaseTab: React.FC = () => {
     deleteArchivedRelease,
     releaseReadinessScore,
     readyToShipStatus,
+    rrsDimensions,
+    rrsVertical,
+    setRrsVertical,
     releaseLogs,
     triggerRelease,
     isReleaseTriggered
@@ -114,8 +136,121 @@ export const ReleaseTab: React.FC = () => {
     },
   ];
 
+  const verdictColor = (v: string) =>
+    v === 'GO' ? 'var(--status-success)' : v === 'CONDITIONAL GO' ? 'var(--status-warning)' : 'var(--status-danger)';
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+
+      {/* ── RRS™ Score Breakdown ── */}
+      <section className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {/* Header row */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <h3 style={{ fontSize: '1.2rem', color: 'var(--text-primary)', marginBottom: '4px' }}>
+              Release Readiness Score™ Breakdown
+            </h3>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              Five-dimension composite score · Verdict bands: GO ≥80 · CONDITIONAL GO 60–79 · NO-GO &lt;60
+            </p>
+          </div>
+          {/* Vertical selector */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
+            <label style={{ fontSize: '0.72rem', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Weight Profile
+            </label>
+            <select
+              value={rrsVertical}
+              onChange={e => setRrsVertical(e.target.value as RRSVertical)}
+              style={{
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid var(--glass-border)',
+                borderRadius: '8px',
+                color: 'var(--text-primary)',
+                fontSize: '0.82rem',
+                fontWeight: '600',
+                padding: '6px 10px',
+                cursor: 'pointer',
+                outline: 'none',
+                fontFamily: 'inherit',
+              }}
+            >
+              {(Object.keys(VERTICAL_LABELS) as RRSVertical[]).map(v => (
+                <option key={v} value={v}>{VERTICAL_LABELS[v]}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Composite score hero */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '16px 20px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid var(--glass-border)' }}>
+          <div style={{ fontSize: '3rem', fontWeight: '800', fontFamily: 'var(--font-display)', color: verdictColor(readyToShipStatus), lineHeight: 1 }}>
+            {releaseReadinessScore}
+          </div>
+          <div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Out of 100</div>
+            <div style={{ fontSize: '1rem', fontWeight: '700', color: verdictColor(readyToShipStatus), marginTop: '2px' }}>
+              {readyToShipStatus === 'GO' ? '✅' : readyToShipStatus === 'CONDITIONAL GO' ? '⚠️' : '❌'} {readyToShipStatus}
+            </div>
+          </div>
+        </div>
+
+        {/* Dimension rows */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {rrsDimensions.map(dim => {
+            const color = dim.score >= 80 ? 'var(--status-success)' : dim.score >= 60 ? 'var(--status-warning)' : 'var(--status-danger)';
+            return (
+              <div key={dim.name}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '5px' }}>
+                  <div>
+                    <span style={{ fontSize: '0.88rem', fontWeight: '600', color: 'var(--text-primary)' }}>{dim.name}</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: '8px' }}>{Math.round(dim.weight * 100)}% weight</span>
+                  </div>
+                  <span style={{ fontSize: '0.95rem', fontWeight: '700', color }}>{dim.score}/100</span>
+                </div>
+                {/* Bar */}
+                <div style={{ height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${dim.score}%`, background: color, borderRadius: '3px', transition: 'width 0.6s ease' }} />
+                </div>
+                {/* Explanation + flag */}
+                <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '3px' }}>{dim.explanation}</p>
+                {dim.flag && (
+                  <p style={{ fontSize: '0.72rem', color: 'var(--status-warning)', marginTop: '2px' }}>⚠ {dim.flag}</p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ── Historical Deployments Chart ── */}
+      <section className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div>
+          <h3 style={{ fontSize: '1.2rem', color: 'var(--text-primary)', marginBottom: '4px' }}>Historical RRS™ Scores</h3>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Past 8 deployments — incidents marked in red</p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: '100px', paddingBottom: '4px' }}>
+          {HISTORICAL_DEPLOYMENTS.map(d => {
+            const barColor = d.verdict === 'GO' ? 'var(--status-success)' : d.verdict === 'CONDITIONAL GO' ? 'var(--status-warning)' : 'var(--status-danger)';
+            return (
+              <div key={d.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: '700' }}>{d.score}</span>
+                <div style={{ width: '100%', height: `${d.score}px`, background: barColor, borderRadius: '4px 4px 0 0', opacity: 0.8, position: 'relative', transition: 'height 0.4s ease' }}>
+                  {d.incident && (
+                    <span style={{ position: 'absolute', top: '-14px', left: '50%', transform: 'translateX(-50%)', fontSize: '10px' }}>🔴</span>
+                  )}
+                </div>
+                <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.2 }}>{d.label}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ display: 'flex', gap: '16px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '10px', height: '10px', borderRadius: '2px', background: 'var(--status-success)', display: 'inline-block' }}/>GO ≥80</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '10px', height: '10px', borderRadius: '2px', background: 'var(--status-warning)', display: 'inline-block' }}/>CONDITIONAL GO 60–79</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: '10px', height: '10px', borderRadius: '2px', background: 'var(--status-danger)', display: 'inline-block' }}/>NO-GO &lt;60 · 🔴 Incident</span>
+        </div>
+      </section>
 
       {/* ── Tier 1: Rollout Pipeline Stepper (full-width) ── */}
       <section className="glass-card">
@@ -129,10 +264,10 @@ export const ReleaseTab: React.FC = () => {
           <button
             className="btn btn-primary"
             onClick={triggerRelease}
-            disabled={isReleaseTriggered || readyToShipStatus === 'Blocked'}
+            disabled={isReleaseTriggered || readyToShipStatus === 'NO-GO'}
             style={{
-              opacity: readyToShipStatus === 'Blocked' ? 0.4 : 1,
-              cursor:  readyToShipStatus === 'Blocked' ? 'not-allowed' : 'pointer',
+              opacity: readyToShipStatus === 'NO-GO' ? 0.4 : 1,
+              cursor:  readyToShipStatus === 'NO-GO' ? 'not-allowed' : 'pointer',
               fontSize: '0.85rem', padding: '8px 16px',
               display: 'flex', alignItems: 'center', gap: '6px'
             }}
@@ -256,7 +391,7 @@ export const ReleaseTab: React.FC = () => {
             {TRANSLATIONS.noDeployments}
           </p>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '20px' }}>
+          <div className="release-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(340px, 100%), 1fr))', gap: '20px' }}>
             {archivedReleases.map((release) => (
               <div
                 key={release.id}
@@ -276,8 +411,8 @@ export const ReleaseTab: React.FC = () => {
                     {release.build}
                   </h4>
                   <span className={`badge ${
-                    release.status === 'Blocked'       ? 'badge-danger' :
-                    release.status === 'Risk Detected' ? 'badge-warning' : 'badge-success'
+                    release.status === 'NO-GO'          ? 'badge-danger' :
+                    release.status === 'CONDITIONAL GO' ? 'badge-warning' : 'badge-success'
                   }`} style={{ whiteSpace: 'nowrap' }}>
                     {release.status}
                   </span>
@@ -315,7 +450,7 @@ export const ReleaseTab: React.FC = () => {
                         </svg>
                         Release Metrics
                       </h5>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+                      <div className="two-col-grid" style={{ gap: '12px' }}>
                         {[
                           { label: TRANSLATIONS.readinessScore,    value: `${release.score}/100` },
                           { label: TRANSLATIONS.slaLatency,        value: `${release.latency}ms` },

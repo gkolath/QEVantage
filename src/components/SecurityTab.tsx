@@ -22,7 +22,7 @@ export const SecurityTab: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '32px' }}>
+    <div className="security-outer-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(360px, 100%), 1fr))', gap: '32px' }}>
       
       {/* Left Column: Vulnerability Grid & Compliance */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
@@ -31,7 +31,7 @@ export const SecurityTab: React.FC = () => {
         <section className="glass-card">
           <h3 style={{ fontSize: '1.2rem', color: 'var(--text-primary)', marginBottom: '16px' }}>Compliance Security Auditing</h3>
           
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '20px' }}>
+          <div className="two-col-grid" style={{ gap: '20px' }}>
             
             {/* SOC2 Progress */}
             <div>
@@ -135,7 +135,7 @@ export const SecurityTab: React.FC = () => {
               <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Location: <code>{selectedFinding.file}:{selectedFinding.line}</code></p>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            <div className="two-col-grid">
               
               {/* Recalculate Business Hazard Impact */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>

@@ -6,12 +6,28 @@ import type {
   AnomalyLog,
   SecurityFinding,
   HealingEvent,
-  ArchivedRelease
+  ArchivedRelease,
+  RRSVertical,
+  RRSDimensionScore,
 } from './QEVantageContextCore';
 
+// ── RRS™ Weight profiles (mirrors config/weights.json) ─────────────────────
+const RRS_WEIGHTS: Record<RRSVertical, Record<string, number>> = {
+  default:    { functional: 0.20, automation: 0.20, performance: 0.20, security: 0.20, regression: 0.20 },
+  fintech:    { functional: 0.15, automation: 0.20, performance: 0.15, security: 0.30, regression: 0.20 },
+  retail:     { functional: 0.20, automation: 0.20, performance: 0.25, security: 0.15, regression: 0.20 },
+  healthcare: { functional: 0.25, automation: 0.15, performance: 0.15, security: 0.30, regression: 0.15 },
+};
+
+const SECURITY_PENALTIES = { critical: 25, high: 12, medium: 5, low: 1 };
+
 export const QEVantageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Tabs Navigation
-  const [activeTab, setActiveTab] = useState('dashboard');
+  // Tabs Navigation — persisted across refreshes
+  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('qev_activeTab') ?? 'dashboard');
+
+  useEffect(() => {
+    localStorage.setItem('qev_activeTab', activeTab);
+  }, [activeTab]);
   const [isSimulating, setIsSimulating] = useState(false);
 
   // Pillar 1: Functional State Initializer
@@ -227,6 +243,9 @@ export const QEVantageProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   ]);
 
+  // RRS™ vertical weight profile
+  const [rrsVertical, setRrsVertical] = useState<RRSVertical>('retail');
+
   // NEW PILLARS Telemetry and Release pipeline states
   const [liveTelemetryActive, setLiveTelemetryActive] = useState(false);
   const [pipelineStage, setPipelineStage] = useState<'idle' | 'code_push' | 'automated_qa' | 'security_gate' | 'uat_approval' | 'production_rollout'>('idle');
@@ -237,7 +256,7 @@ export const QEVantageProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       id: 'rel-past-1',
       build: 'B-106',
       score: 91,
-      status: 'Ready to Ship',
+      status: 'GO',
       timestamp: '2026-05-24 18:32:00',
       coverage: 86,
       passRate: 98,
@@ -375,58 +394,129 @@ export const QEVantageProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     OWASP_10: totalOWASP.length ? Math.round((resolvedOWASP / totalOWASP.length) * 100) : 100,
   };
 
-  // 1. Functional Testing: average coverage score (Weight: 25%)
-  const avgCoverage = heatmapNodes.reduce((acc, curr) => acc + curr.coverage, 0) / heatmapNodes.length;
+  // ── RRS™ Engine — mirrors scorer.py + dimensions.py ──────────────────────
 
-  // 2. Automation: passed / total (Weight: 25%)
-  const totalAutomationTests = testSuites.reduce((acc, curr) => acc + curr.total, 0);
-  const passedAutomationTests = testSuites.reduce((acc, curr) => acc + curr.passed, 0);
-  const automationPassRate = totalAutomationTests ? (passedAutomationTests / totalAutomationTests) * 100 : 100;
+  const weights = RRS_WEIGHTS[rrsVertical];
 
-  // 3. Performance: latest latency SLA comparison (Weight: 20%)
-  const latestBuild = perfHistory.slice(-1)[0];
-  const performanceScore = latestBuild.responseTime <= latencySla ? 100 : Math.max(50, 100 - (latestBuild.responseTime - latencySla));
+  // Raw inputs
+  const avgCoverage = heatmapNodes.reduce((acc, n) => acc + n.coverage, 0) / heatmapNodes.length;
+  const totalAutomationTests  = testSuites.reduce((acc, s) => acc + s.total, 0);
+  const passedAutomationTests = testSuites.reduce((acc, s) => acc + s.passed, 0);
+  const totalFlakyTests       = testSuites.reduce((acc, s) => acc + s.flaky, 0);
+  const automationPassRate    = totalAutomationTests ? (passedAutomationTests / totalAutomationTests) * 100 : 100;
+  const latestBuild           = perfHistory.slice(-1)[0];
 
-  // 4. Security Risk: subtract penalties for open security items (Weight: 30%)
-  let securityScore = 100;
-  securityFindings.forEach(f => {
-    if (f.status === 'Open') {
-      if (f.businessImpact === 'Critical') securityScore -= 30;
-      else if (f.businessImpact === 'High') securityScore -= 15;
-      else if (f.businessImpact === 'Medium') securityScore -= 5;
-    } else if (f.status === 'Triaged') {
-      if (f.businessImpact === 'Critical') securityScore -= 10;
-      else if (f.businessImpact === 'High') securityScore -= 5;
-    }
-  });
-  securityScore = Math.max(0, securityScore);
+  // 1. Functional Coverage: coverage_pct × pass_rate
+  const passRate = totalAutomationTests ? passedAutomationTests / totalAutomationTests : 1;
+  const functionalScore = Math.max(0, Math.min(100, avgCoverage * passRate));
+  let functionalFlag: string | null = null;
+  if (avgCoverage < 70) functionalFlag = `Low story coverage (${avgCoverage.toFixed(0)}%) — ${(100 - avgCoverage).toFixed(0)}% of stories lack test coverage`;
+  else if (passRate < 0.80) functionalFlag = `Pass rate below 80% (${(passRate * 100).toFixed(0)}%) — investigate failing tests before release`;
+  const functionalDim: RRSDimensionScore = {
+    name: 'Functional Coverage', score: Math.round(functionalScore), weight: weights.functional,
+    explanation: `${avgCoverage.toFixed(0)}% story coverage × ${(passRate * 100).toFixed(0)}% pass rate = ${functionalScore.toFixed(0)}`,
+    flag: functionalFlag,
+  };
 
-  // Calculate dynamic composite Release Readiness Score™
+  // 2. Automation Stability: (1 − flakiness_penalty) × ci_reliability
+  const flakinessRate = totalAutomationTests ? totalFlakyTests / totalAutomationTests : 0;
+  const flakinessComponent = Math.max(0, 100 - Math.min(50, flakinessRate * 200));
+  const ciComponent = passRate * 100;
+  const automationScore = Math.round((flakinessComponent * 0.6) + (ciComponent * 0.4));
+  let automationFlag: string | null = null;
+  if (flakinessRate > 0.10) automationFlag = `High flakiness (${(flakinessRate * 100).toFixed(0)}% of tests are flaky) — quarantine unstable tests`;
+  else if (passRate < 0.80) automationFlag = `CI pass rate below 80% (${(passRate * 100).toFixed(0)}%)`;
+  const automationDim: RRSDimensionScore = {
+    name: 'Automation Stability', score: automationScore, weight: weights.automation,
+    explanation: `Flakiness ${(flakinessRate * 100).toFixed(1)}% → ${flakinessComponent.toFixed(0)} | CI ${(passRate * 100).toFixed(0)}% → ${ciComponent.toFixed(0)} | Weighted = ${automationScore}`,
+    flag: automationFlag,
+  };
+
+  // 3. Performance SLA: deviation from baseline (latencySla = baseline p95)
+  const deviationPct = latestBuild.responseTime <= latencySla
+    ? ((latestBuild.responseTime - latencySla) / latencySla) * 100
+    : ((latestBuild.responseTime - latencySla) / latencySla) * 100;
+  const thresholdPct = 20;
+  const performanceScore = deviationPct <= 0
+    ? 100
+    : Math.round(Math.max(0, 100 * (1 - deviationPct / (thresholdPct * 2))));
+  let performanceFlag: string | null = null;
+  if (deviationPct > thresholdPct) performanceFlag = `Latency ${deviationPct.toFixed(1)}% above baseline (threshold: ${thresholdPct}%) — performance regression`;
+  else if (deviationPct > thresholdPct * 0.7) performanceFlag = `Latency trending toward threshold (${deviationPct.toFixed(1)}% above baseline)`;
+  const performanceDim: RRSDimensionScore = {
+    name: 'Performance SLA', score: performanceScore, weight: weights.performance,
+    explanation: deviationPct <= 0
+      ? `${Math.abs(deviationPct).toFixed(1)}% faster than baseline — excellent`
+      : `Latency ${deviationPct.toFixed(1)}% above baseline → score ${performanceScore}`,
+    flag: performanceFlag,
+  };
+
+  // 4. Security Risk: 100 − penalty_sum (penalties: critical=25, high=12, medium=5, low=1)
+  let securityPenalty = 0;
+  const openCritical = securityFindings.filter(f => f.status === 'Open' && f.businessImpact === 'Critical').length;
+  const openHigh     = securityFindings.filter(f => f.status === 'Open' && f.businessImpact === 'High').length;
+  const openMedium   = securityFindings.filter(f => f.status === 'Open' && f.businessImpact === 'Medium').length;
+  const openLow      = securityFindings.filter(f => f.status === 'Open' && f.businessImpact === 'Low').length;
+  // Triaged items carry half-penalty
+  const triagedCritical = securityFindings.filter(f => f.status === 'Triaged' && f.businessImpact === 'Critical').length;
+  const triagedHigh     = securityFindings.filter(f => f.status === 'Triaged' && f.businessImpact === 'High').length;
+  securityPenalty = (openCritical * SECURITY_PENALTIES.critical) + (openHigh * SECURITY_PENALTIES.high) +
+                    (openMedium * SECURITY_PENALTIES.medium) + (openLow * SECURITY_PENALTIES.low) +
+                    (triagedCritical * Math.round(SECURITY_PENALTIES.critical / 2)) +
+                    (triagedHigh * Math.round(SECURITY_PENALTIES.high / 2));
+  const securityScore = Math.max(0, 100 - securityPenalty);
+  const criticalSecCount = openCritical;
+  let securityFlag: string | null = null;
+  if (openCritical > 0) securityFlag = `${openCritical} CRITICAL finding(s) — must resolve before production release`;
+  else if (openHigh > 0) securityFlag = `${openHigh} HIGH finding(s) — review and accept risk or resolve before release`;
+  else if (openMedium > 3) securityFlag = `${openMedium} medium findings — accumulation suggests security debt`;
+  const securityDim: RRSDimensionScore = {
+    name: 'Security Risk', score: Math.round(securityScore), weight: weights.security,
+    explanation: `Open: ${openCritical}C ${openHigh}H ${openMedium}M ${openLow}L → penalty ${securityPenalty} → score ${Math.round(securityScore)}`,
+    flag: securityFlag,
+  };
+
+  // 5. Regression Coverage: proxy using High-risk heatmap nodes (changed-code coverage)
+  const highRiskNodes = heatmapNodes.filter(n => n.risk === 'High');
+  const regressionCoveragePct = highRiskNodes.length > 0
+    ? highRiskNodes.reduce((acc, n) => acc + n.coverage, 0) / highRiskNodes.length
+    : avgCoverage * 0.9; // fallback
+  const regressionScore = Math.round(Math.max(0, Math.min(100, regressionCoveragePct)));
+  let regressionFlag: string | null = null;
+  if (regressionCoveragePct < 60) regressionFlag = `Low regression coverage (${regressionCoveragePct.toFixed(0)}%) — significant changed code is untested`;
+  else if (regressionCoveragePct < 80) regressionFlag = `Regression coverage below 80% (${regressionCoveragePct.toFixed(0)}%) — expand test scope for this diff`;
+  const regressionDim: RRSDimensionScore = {
+    name: 'Regression Coverage', score: regressionScore, weight: weights.regression,
+    explanation: `${regressionCoveragePct.toFixed(0)}% of high-risk changed code paths covered → score ${regressionScore}`,
+    flag: regressionFlag,
+  };
+
+  const rrsDimensions: RRSDimensionScore[] = [functionalDim, automationDim, performanceDim, securityDim, regressionDim];
+
+  // ── Composite RRS™ score ─────────────────────────────────────────────────
   const releaseReadinessScore = Math.round(
-    (avgCoverage * 0.25) +
-    (automationPassRate * 0.25) +
-    (performanceScore * 0.20) +
-    (securityScore * 0.30)
+    functionalScore  * weights.functional  +
+    automationScore  * weights.automation  +
+    performanceScore * weights.performance +
+    securityScore    * weights.security    +
+    regressionScore  * weights.regression
   );
 
-  // Gate Status Logic
-  const hasCriticalOpenSec = securityFindings.some(f => f.status === 'Open' && f.businessImpact === 'Critical');
-  const hasSeverePerfAnomaly = latestBuild.responseTime > latencySla * 1.25;
+  // ── Verdict bands: GO ≥80 | CONDITIONAL GO 60–79 | NO-GO <60 ────────────
+  const readyToShipStatus = releaseReadinessScore >= 80 ? 'GO'
+    : releaseReadinessScore >= 60 ? 'CONDITIONAL GO'
+    : 'NO-GO';
 
-  let readyToShipStatus: 'Ready to Ship' | 'Risk Detected' | 'Blocked' = 'Ready to Ship';
-  if (hasCriticalOpenSec || hasSeverePerfAnomaly || releaseReadinessScore < 70) {
-    readyToShipStatus = 'Blocked';
-  } else if (releaseReadinessScore < 85 || latestBuild.responseTime > latencySla || securityFindings.some(f => f.status === 'Open')) {
-    readyToShipStatus = 'Risk Detected';
-  }
+  const hasCriticalOpenSec = openCritical > 0;
+  const hasSeverePerfAnomaly = latestBuild.responseTime > latencySla * 1.25;
 
   // Trigger Release state
   const [isReleaseTriggered, setIsReleaseTriggered] = useState(false);
   const [releaseLogs, setReleaseLogs] = useState<string[]>([]);
 
   const triggerRelease = () => {
-    if (readyToShipStatus === 'Blocked') {
-      setReleaseLogs(prev => [...prev, 'CRITICAL: Release pipeline BLOCKED by active quality gates. Fix open security vulnerabilities or latency anomalies before deploying.']);
+    if (readyToShipStatus === 'NO-GO') {
+      setReleaseLogs(prev => [...prev, `CRITICAL: Release pipeline blocked — RRS™ score ${releaseReadinessScore}/100 is below the NO-GO threshold. Resolve quality gates before deploying.`]);
       return;
     }
 
@@ -484,11 +574,13 @@ export const QEVantageProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       // Create new archived release package
       const latestBuild = perfHistory.slice(-1)[0];
-      const avgCoverage = Math.round(heatmapNodes.reduce((acc, curr) => acc + curr.coverage, 0) / heatmapNodes.length);
-      const totalAutomationTests = testSuites.reduce((acc, curr) => acc + curr.total, 0);
-      const passedAutomationTests = testSuites.reduce((acc, curr) => acc + curr.passed, 0);
-      const automationPassRate = totalAutomationTests ? Math.round((passedAutomationTests / totalAutomationTests) * 100) : 100;
+      const avgCov = Math.round(heatmapNodes.reduce((acc, curr) => acc + curr.coverage, 0) / heatmapNodes.length);
+      const totalAuto = testSuites.reduce((acc, curr) => acc + curr.total, 0);
+      const passedAuto = testSuites.reduce((acc, curr) => acc + curr.passed, 0);
+      const autoPassRate = totalAuto ? Math.round((passedAuto / totalAuto) * 100) : 100;
       const totalOpenSec = securityFindings.filter(f => f.status === 'Open').length;
+      const automationPassRate = autoPassRate;
+      const avgCoverage = avgCov;
 
       const newArchive: ArchivedRelease = {
         id: `rel-${Date.now()}`,
@@ -647,6 +739,9 @@ ${stories.map(s => `- **${s.title}** (${s.module}) — Coverage: ${s.coverage}% 
       complianceProgress,
       releaseReadinessScore,
       readyToShipStatus,
+      rrsDimensions,
+      rrsVertical,
+      setRrsVertical,
       isReleaseTriggered,
       releaseLogs,
       triggerRelease,

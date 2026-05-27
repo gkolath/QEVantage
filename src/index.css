@@ -190,6 +190,7 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 20px 50px -15px rgba(0, 0, 0, 0.8), 0 0 30px -5px rgba(59, 130, 246, 0.1);
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: auto !important; /* Forces cursor click triggers to pass through to child buttons */
+  position: relative;
 }
 
 .logo-container {
@@ -669,6 +670,201 @@ select option {
   .functional-grid {
     grid-template-columns: 1fr;
     gap: 24px;
+  }
+}
+
+/* Responsive: Score + Checklist side-by-side on desktop, stacked on mobile */
+.score-layout-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+
+/* Responsive: 4-col nav cards on desktop */
+.nav-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+/* Responsive donut chart container */
+.donut-container {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 768px) {
+  .score-layout-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .nav-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  .donut-container {
+    width: 180px;
+    height: 180px;
+  }
+}
+
+@media (max-width: 480px) {
+  .nav-cards-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .functional-grid {
+    gap: 16px;
+  }
+}
+
+/* ── Burger button (hidden on desktop) ── */
+.burger-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+.burger-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ── Mobile dropdown menu ── */
+.mobile-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 220px;
+  background: rgba(10, 12, 20, 0.96);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+  z-index: 10000;
+  animation: menuSlideIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes menuSlideIn {
+  from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.mobile-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+  width: 100%;
+}
+.mobile-menu-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+}
+.mobile-menu-item.active {
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--accent-blue);
+}
+
+/* ── Reusable responsive two-column grid ── */
+.two-col-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* ── Heatmap scroll wrapper: lets dynamic-column grids scroll horizontally on mobile ── */
+.heatmap-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+}
+
+@media (max-width: 768px) {
+  /* Header: compact single row on mobile */
+  .header-nav {
+    width: calc(100% - 24px);
+    padding: 0 16px;
+    top: 12px;
+    margin: 12px auto 8px auto;
+    border-radius: 20px;
+    height: 60px;
+    flex-wrap: nowrap;
+  }
+
+  .logo-container {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .logo-text {
+    font-size: 1.05rem;
+  }
+
+  /* Hide confidential badge and desktop nav on mobile */
+  .confidential-badge,
+  .desktop-nav {
+    display: none;
+  }
+
+  /* Show burger button on mobile */
+  .burger-btn {
+    display: flex;
+  }
+
+  /* Main content: reduce side padding on mobile (overrides inline style) */
+  .app-content {
+    padding: 16px 16px 48px 16px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden;
+  }
+
+  /* Hero title: smaller on mobile */
+  .hero-title {
+    font-size: 1.5rem !important;
+  }
+
+  /* Two-col grids collapse to one column */
+  .two-col-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Security outer grid: enforce min-width doesn't blow out */
+  .security-outer-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Release cards: enforce min-width doesn't blow out */
+  .release-cards-grid {
+    grid-template-columns: 1fr !important;
   }
 }
 
