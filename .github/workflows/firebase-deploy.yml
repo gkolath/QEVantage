@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - main
-  pull_request:
-    branches:
-      - main
 
 jobs:
   build_and_deploy:
@@ -29,19 +26,7 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Deploy to Firebase Hosting (main only)
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          channelId: live
-          projectId: qevantage-83b92
-
-      - name: Deploy preview (pull requests)
-        if: github.event_name == 'pull_request'
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          projectId: qevantage-83b92
+      - name: Deploy to Firebase Hosting
+        run: npx firebase-tools deploy --only hosting --project qevantage-83b92 --token "$FIREBASE_TOKEN"
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
