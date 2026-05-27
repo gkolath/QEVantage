@@ -403,7 +403,6 @@ export const QEVantageProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const totalAutomationTests  = testSuites.reduce((acc, s) => acc + s.total, 0);
   const passedAutomationTests = testSuites.reduce((acc, s) => acc + s.passed, 0);
   const totalFlakyTests       = testSuites.reduce((acc, s) => acc + s.flaky, 0);
-  const automationPassRate    = totalAutomationTests ? (passedAutomationTests / totalAutomationTests) * 100 : 100;
   const latestBuild           = perfHistory.slice(-1)[0];
 
   // 1. Functional Coverage: coverage_pct × pass_rate
@@ -465,7 +464,6 @@ export const QEVantageProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                     (triagedCritical * Math.round(SECURITY_PENALTIES.critical / 2)) +
                     (triagedHigh * Math.round(SECURITY_PENALTIES.high / 2));
   const securityScore = Math.max(0, 100 - securityPenalty);
-  const criticalSecCount = openCritical;
   let securityFlag: string | null = null;
   if (openCritical > 0) securityFlag = `${openCritical} CRITICAL finding(s) — must resolve before production release`;
   else if (openHigh > 0) securityFlag = `${openHigh} HIGH finding(s) — review and accept risk or resolve before release`;
@@ -506,9 +504,6 @@ export const QEVantageProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const readyToShipStatus = releaseReadinessScore >= 80 ? 'GO'
     : releaseReadinessScore >= 60 ? 'CONDITIONAL GO'
     : 'NO-GO';
-
-  const hasCriticalOpenSec = openCritical > 0;
-  const hasSeverePerfAnomaly = latestBuild.responseTime > latencySla * 1.25;
 
   // Trigger Release state
   const [isReleaseTriggered, setIsReleaseTriggered] = useState(false);

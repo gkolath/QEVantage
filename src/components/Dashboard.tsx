@@ -81,7 +81,6 @@ export const Dashboard: React.FC = () => {
   const latestPerf = perfHistory.slice(-1)[0];
   const isPerfOk = latestPerf.responseTime <= latencySla;
 
-  const criticalSecCount = securityFindings.filter(f => f.status === 'Open' && f.businessImpact === 'Critical').length;
   const totalOpenSec = securityFindings.filter(f => f.status === 'Open').length;
 
   // Gauge configurations
