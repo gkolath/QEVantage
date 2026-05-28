@@ -24,8 +24,29 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Run Playwright E2E tests
+        run: npx playwright test
+        continue-on-error: true  # Don't block deploy on test failures — results are embedded in the build
+
+      - name: Transform test results → src/data/test-results.ts
+        run: node scripts/transform-results.mjs
+        continue-on-error: true  # Falls back to seed data if results file missing
+
       - name: Build
         run: npm run build
+
+      - name: Upload Playwright report (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
 
       - name: Deploy to Firebase Hosting
         run: npx firebase-tools deploy --only hosting --project qevantage-83b92 --token "$FIREBASE_TOKEN"

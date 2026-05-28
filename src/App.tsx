@@ -25,7 +25,12 @@ const App: React.FC = () => {
   const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
 
   // On mount, check Firebase Auth session — restores login across refreshes
+  // VITE_E2E=true bypasses auth so Playwright tests can access the app directly
   useEffect(() => {
+    if (import.meta.env.VITE_E2E === 'true') {
+      setPage('app');
+      return;
+    }
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setPage(user ? 'app' : 'login');
     });

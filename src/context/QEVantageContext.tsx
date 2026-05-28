@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { QEVantageContext } from './QEVantageContextCore';
+import { PLAYWRIGHT_RESULTS, RESULTS_TIMESTAMP } from '../data/test-results';
 import type {
   UserStory,
   TestSuite,
@@ -141,13 +142,20 @@ export const QEVantageProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setHeatmapNodes(prev => prev.map(n => n.id === id ? { ...n, coverage: newCoverage } : n));
   };
 
-  // Pillar 2: Automation Testing State
-  const [testSuites, setTestSuites] = useState<TestSuite[]>([
-    { id: 'suite-1', name: 'Critical Path Playwright Suite', framework: 'Playwright', total: 24, passed: 24, failed: 0, flaky: 0, status: 'Passed' },
-    { id: 'suite-2', name: 'Legacy Billing Selenium Suite', framework: 'Selenium', total: 18, passed: 17, failed: 1, flaky: 0, status: 'Failed' },
-    { id: 'suite-3', name: 'Core API Integration Cypress Suite', framework: 'Cypress', total: 32, passed: 30, failed: 0, flaky: 2, status: 'Passed' },
-    { id: 'suite-4', name: 'Mobile Checkout Appium Suite', framework: 'Appium', total: 12, passed: 12, failed: 0, flaky: 0, status: 'Passed' },
-  ]);
+  // Pillar 2: Automation Testing State — seeded from real Playwright CI results
+  const [testSuites, setTestSuites] = useState<TestSuite[]>(
+    PLAYWRIGHT_RESULTS.map(r => ({
+      id:        r.id,
+      name:      r.name,
+      framework: r.framework as TestSuite['framework'],
+      total:     r.total,
+      passed:    r.passed,
+      failed:    r.failed,
+      flaky:     r.flaky,
+      status:    r.status,
+    }))
+  );
+  const playwrightResultsTimestamp = RESULTS_TIMESTAMP;
 
   const [isHealingEnabled, setIsHealingEnabled] = useState(true);
   const [healingEvents, setHealingEvents] = useState<HealingEvent[]>([
@@ -725,6 +733,7 @@ ${stories.map(s => `- **${s.title}** (${s.module}) — Coverage: ${s.coverage}% 
       heatmapNodes,
       updateNodeCoverage,
       testSuites,
+      playwrightResultsTimestamp,
       isHealingEnabled,
       setIsHealingEnabled,
       healingEvents,

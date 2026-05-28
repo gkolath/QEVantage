@@ -95,6 +95,7 @@ export interface QEVantageContextType {
 
   // Pillar 2: Automation Testing State
   testSuites: TestSuite[];
+  playwrightResultsTimestamp: string;
   isHealingEnabled: boolean;
   setIsHealingEnabled: (val: boolean) => void;
   healingEvents: HealingEvent[];

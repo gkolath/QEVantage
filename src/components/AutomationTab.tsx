@@ -4,6 +4,7 @@ import { useQEVantage } from '../context/QEVantageContextCore';
 export const AutomationTab: React.FC = () => {
   const {
     testSuites,
+    playwrightResultsTimestamp,
     isHealingEnabled,
     setIsHealingEnabled,
     healingEvents,
@@ -12,6 +13,8 @@ export const AutomationTab: React.FC = () => {
     quarantineFlakyTest,
     isSimulating
   } = useQEVantage();
+
+  const isLiveData = !playwrightResultsTimestamp.includes('Not yet run');
 
   const [selectedSuite, setSelectedSuite] = useState<typeof testSuites[0] | null>(null);
 
@@ -77,8 +80,24 @@ export const AutomationTab: React.FC = () => {
       <section className="glass-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '8px' }}>
           <div>
-            <h3 style={{ fontSize: '1.2rem', color: 'var(--text-primary)', marginBottom: '4px' }}>Suite Health Matrix</h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '24px' }}>Click any suite block to inspect execution details and pass-rate depth.</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+              <h3 style={{ fontSize: '1.2rem', color: 'var(--text-primary)', margin: 0 }}>Suite Health Matrix</h3>
+              {isLiveData ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.7rem', fontWeight: '700', letterSpacing: '0.05em', color: 'var(--status-success)', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '20px', padding: '2px 10px' }}>
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--status-success)', display: 'inline-block' }} />
+                  LIVE CI RESULTS
+                </span>
+              ) : (
+                <span style={{ fontSize: '0.7rem', fontWeight: '700', letterSpacing: '0.05em', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--glass-border)', borderRadius: '20px', padding: '2px 10px' }}>
+                  SEED DATA
+                </span>
+              )}
+            </div>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '24px' }}>
+              {isLiveData
+                ? `Real Playwright results from CI · Last run: ${playwrightResultsTimestamp}`
+                : 'Click any suite block to inspect execution details and pass-rate depth.'}
+            </p>
           </div>
           <button
             className="btn btn-primary"
